@@ -15,15 +15,29 @@
       <h1>Mission to Mars</h1>
       <p><a class="btn btn-primary btn-lg" href="/scrape" role="button">Scrape New Data</a></p>
     </div>
+  </div>
 
-    <!-- Mars Listing -->
-    <div class="row" id="mars_news">
-      <div class="col-md-12">
-        <h4 class="heading">{{mars_news.title}}</h4>
-        <small>{{mars_news.teaser}}</small>
+  <div class="container">
+    <!-- Mars News -->
+    <div class="row" id="mars_data_news">
+      <div class="col-md-6">
+        <h2 class="heading">Latest Mars News</h3>
+      </div>
+    </div>
+    <div class="row" id="mars_data_news">
+      <div class="col-md-6">
+        <h5 class="heading">{{ mars_data['mars_news_title'] }}</h3>
+        <small>{{ mars_data['mars_news_teaser'] }}</small>
+        <br><br>
       </div>
     </div>
 
+    <!-- Mars Featured Image -->
+    <div class="row" id="mars_data_featured_image_url">
+      <div class="col-md-4">
+        <img width = "400" src="{{ mars_data['featured_image_url'] }}" alt="Featured Image">
+      </div>
+    </div>
   </div>
 </body>
 
