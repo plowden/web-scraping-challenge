@@ -10,9 +10,13 @@ import pandas as pd
 import pymongo
 import requests
 import time
+import re
 
 # Create variable for Mars data dictionary
 mars_data = {}
+
+# Create variable for hemispheres list
+hemispheres = []
 
 def init_browser():
     executable_path = {"executable_path": "/usr/local/bin/chromedriver"}
@@ -83,6 +87,103 @@ def scrape_featured_image():
     # Return results
     return featured_image_url
 
+def scrape_tweet():
+    browser = init_browser()
+
+    # Visit https://twitter.com/marswxreport?lang=en
+    url = "https://twitter.com/marswxreport?lang=en"
+    browser.visit(url)
+
+    # Give time for dynamic content to load
+    time.sleep(3)
+
+    # Scrape page into Soup
+    html = browser.html
+    soup = bs(html, "html.parser")
+
+    scraped_tweet = soup.find_all(text=True)
+
+    tweet = ''
+    for text in scraped_tweet:
+        if re.search(r'^InSight', text):
+            tweet = text
+            break
+        
+    # Close the browser after scraping
+    browser.quit()
+
+    # Return results
+    return tweet
+
+def scrape_facts():
+    # Visit https://space-facts.com/mars/ 
+    url = "https://space-facts.com/mars/"
+
+    # Read in tables.
+    tables = pd.read_html(url)
+
+    # Convert first table to dataframe.
+    df = tables[0]
+
+    # Store dataframe as an HTML table string.
+    html_table = df.to_html(classes=("table", "table-bordered"))
+
+    # Strip newline characters.
+    html_table = html_table.replace('\n', '')
+
+    return html_table
+
+def scrape_hemispheres():
+    browser = init_browser()
+
+    # Visit https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars 
+    url = "https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars"
+    browser.visit(url)
+
+    # Give time for dynamic content to load
+    time.sleep(5)
+    
+    # HTML object
+    html = browser.html
+    # Parse HTML with Beautiful Soup
+    soup = bs(html, 'html.parser')
+    # Retrieve all elements that contain hemisphere information
+    hemispheres_tmp = soup.find_all('div', class_='description')
+
+    hemisphere_list = []
+    hemisphere_dict = {}
+    
+    # Iterate through each hemisphere
+    for hemisphere in hemispheres_tmp:
+        # Use Beautiful Soup's find() method to navigate and retrieve attributes
+        link = hemisphere.find('a')
+        title = link.find('h3').text.strip()
+        href = re.search('\/(.*)\"', str(link)).group(1)
+        link = 'https://astrogeology.usgs.gov/' + href
+    
+        browser.visit(link)
+
+        # Give time for dynamic content to load
+        time.sleep(3)
+
+        # HTML object
+        html = browser.html
+
+        # Parse HTML with Beautiful Soup
+        soup = bs(html, 'html.parser')
+        div = soup.find('div', class_='downloads')
+        a = div.find('a')
+        img_url = a['href']
+
+        hemisphere_dict = {'title': title, 'img_url': img_url}
+        hemisphere_list.append(hemisphere_dict)
+        print(f'hemisphere_dict: {hemisphere_dict}')
+        
+    # Close the browser after scraping
+    browser.quit()
+
+    return hemisphere_list
+
 # Create an instance of Flask
 app = Flask(__name__)
 
@@ -109,21 +210,27 @@ def scrape():
 
     # Run the mars_news function and store it in the dictionary
     mars_news_data = scrape_mars_news()
-    #mars_data = { 
-    #  'mars_news_title': mars_news_data['title'],
-    #  'mars_news_teaser': mars_news_data['teaser']
-    #}
 
     # Run the scrape_featured_image function and store it in the dictionary
     featured_image_url = scrape_featured_image()
 
+    # Run the scrape_tweet function and store it in the dictionary
+    tweet = scrape_tweet()
+
+    # Run the scrape_facts function and store it in the dictionary
+    facts = scrape_facts()
+
+    # Run the scrape_hemispheres function and store it in the dictionary
+    hemispheres = scrape_hemispheres()
+
     mars_data = { 
       'mars_news_title': mars_news_data['title'],
       'mars_news_teaser': mars_news_data['teaser'],
-      'featured_image_url': featured_image_url
+      'featured_image_url': featured_image_url,
+      'tweet': tweet,
+      'facts': facts,
+      'hemispheres': hemispheres
     }
-    #print(f'featured_image_url again: {mars_data["featured_image_url"]}')
-    print(f'mars_news_title again: {mars_data["mars_news_title"]}')
 
     # Update the Mongo database using update and upsert=True
     mongo.db.collection.update({}, mars_data, upsert=True)
